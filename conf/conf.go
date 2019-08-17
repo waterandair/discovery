@@ -6,15 +6,15 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
-	log "github.com/bilibili/kratos/pkg/log"
+	"github.com/bilibili/kratos/pkg/log"
 	http "github.com/bilibili/kratos/pkg/net/http/blademaster"
 )
 
 var (
 	confPath      string
 	schedulerPath string
-	region        string
-	zone          string
+	region        string // 大区，通常设置为国家地区， 如 china
+	zone          string // 机房地区，通常设置为机房所在的城市，如 bj， sh， 分别代表北京，上海机房
 	deployEnv     string
 	hostname      string
 	// Conf conf
@@ -34,7 +34,7 @@ func init() {
 // Config config.
 type Config struct {
 	Nodes         []string
-	Zones         map[string][]string
+	Zones         map[string][]string  // change map[string]Nodes
 	HTTPServer    *http.ServerConfig
 	HTTPClient    *http.ClientConfig
 	Env           *Env

@@ -17,3 +17,7 @@ cmd/discovery/discovery
 dist/
 configs/
 go.sum
+
+.idea/
+
+vendor/

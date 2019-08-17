@@ -6,7 +6,6 @@ import (
 	"github.com/bilibili/discovery/model"
 	"github.com/bilibili/discovery/registry"
 	"github.com/bilibili/kratos/pkg/ecode"
-
 	log "github.com/bilibili/kratos/pkg/log"
 )
 

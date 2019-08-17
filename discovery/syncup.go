@@ -10,8 +10,7 @@ import (
 	"github.com/bilibili/discovery/model"
 	"github.com/bilibili/discovery/registry"
 	"github.com/bilibili/kratos/pkg/ecode"
-
-	log "github.com/bilibili/kratos/pkg/log"
+	"github.com/bilibili/kratos/pkg/log"
 )
 
 var (
@@ -25,13 +24,16 @@ func (d *Discovery) Protected() bool {
 	return d.protected
 }
 
-// syncUp populates the registry information from a peer eureka node.
+// syncUp populates the registry information from a peer eureka node.  // 同步其他对等节点的注册信息
 func (d *Discovery) syncUp() {
+	// 启动时配置文件中的 discovery 节点
 	nodes := d.nodes.Load().(*registry.Nodes)
 	for _, node := range nodes.AllNodes() {
 		if nodes.Myself(node.Addr) {
+			// 已有的节点
 			continue
 		}
+		// 其他分区的节点
 		uri := fmt.Sprintf(_fetchAllURL, node.Addr)
 		var res struct {
 			Code int                          `json:"code"`
@@ -45,7 +47,7 @@ func (d *Discovery) syncUp() {
 			log.Error("service syncup from(%s) failed ", uri)
 			continue
 		}
-		// sync success from other node,exit protected mode
+		// sync success from other node,exit protected mode  同步一个节点成功，退出保护模式
 		d.protected = false
 		for _, is := range res.Data {
 			for _, i := range is {
@@ -57,6 +59,7 @@ func (d *Discovery) syncUp() {
 	nodes.UP()
 }
 
+// regSelf 注册自己
 func (d *Discovery) regSelf() context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
 	now := time.Now().UnixNano()
@@ -76,8 +79,11 @@ func (d *Discovery) regSelf() context.CancelFunc {
 		RenewTimestamp:  now,
 		DirtyTimestamp:  now,
 	}
+	// 注册
 	d.Register(ctx, ins, now, false, false)
+	// 注册后异步检查
 	go func() {
+		// 30 秒一次心跳检查
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 		for {
@@ -93,6 +99,7 @@ func (d *Discovery) regSelf() context.CancelFunc {
 					d.Register(ctx, ins, now, false, false)
 				}
 			case <-ctx.Done():
+				// 退出时下线
 				arg := &model.ArgCancel{
 					AppID:    model.AppID,
 					Zone:     d.c.Env.Zone,
@@ -122,11 +129,12 @@ func (d *Discovery) nodesproc() {
 		}
 		ch, _, _, err := d.registry.Polls(arg)
 		if err != nil && err != ecode.NotModified {
-			log.Error("d.registry(%v) error(%v)", arg, err)
+			log.Error("d.registry polls (%v) error(%v)", arg, err)
 			time.Sleep(time.Second)
 			continue
 		}
 		apps := <-ch
+		// 从所有的服务中找出 AppID 对应的所有实例
 		ins, ok := apps[model.AppID]
 		if !ok || ins == nil {
 			return

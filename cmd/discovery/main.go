@@ -30,6 +30,7 @@ func main() {
 		log.Info("discovery get a signal %s", s.String())
 		switch s {
 		case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
+			//
 			cancel()
 			time.Sleep(time.Second)
 			log.Info("discovery quit !!!")
