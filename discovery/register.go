@@ -6,7 +6,7 @@ import (
 	"github.com/bilibili/discovery/model"
 	"github.com/bilibili/discovery/registry"
 	"github.com/bilibili/kratos/pkg/ecode"
-	log "github.com/bilibili/kratos/pkg/log"
+	"github.com/bilibili/kratos/pkg/log"
 )
 
 // Register a new instance.
@@ -17,6 +17,7 @@ func (d *Discovery) Register(c context.Context, ins *model.Instance, latestTimes
 	}
 }
 
+// 心跳检查
 // Renew marks the given instance of the given app name as renewed, and also marks whether it originated from replication.
 func (d *Discovery) Renew(c context.Context, arg *model.ArgRenew) (i *model.Instance, err error) {
 	i, ok := d.registry.Renew(arg)
@@ -37,6 +38,7 @@ func (d *Discovery) Renew(c context.Context, arg *model.ArgRenew) (i *model.Inst
 	return
 }
 
+// 撤销一个实例
 // Cancel cancels the registration of an instance.
 func (d *Discovery) Cancel(c context.Context, arg *model.ArgCancel) (err error) {
 	i, ok := d.registry.Cancel(arg)
@@ -51,16 +53,19 @@ func (d *Discovery) Cancel(c context.Context, arg *model.ArgCancel) (err error) 
 	return
 }
 
+// 获取所有分区的实例
 // FetchAll fetch all instances of all the department.
 func (d *Discovery) FetchAll(c context.Context) (im map[string][]*model.Instance) {
 	return d.registry.FetchAll()
 }
 
+// 获取某个 AppID 对应的实例
 // Fetch fetch all instances by appid.
 func (d *Discovery) Fetch(c context.Context, arg *model.ArgFetch) (info *model.InstanceInfo, err error) {
 	return d.registry.Fetch(arg.Zone, arg.Env, arg.AppID, 0, arg.Status)
 }
 
+// 获取多个 AppID 对应的实例
 // Fetchs fetch multi app by appids.
 func (d *Discovery) Fetchs(c context.Context, arg *model.ArgFetchs) (is map[string]*model.InstanceInfo, err error) {
 	is = make(map[string]*model.InstanceInfo, len(arg.AppID))
@@ -75,6 +80,7 @@ func (d *Discovery) Fetchs(c context.Context, arg *model.ArgFetchs) (is map[stri
 	return
 }
 
+// Polls 会挂起当前请求，当实例发生修改时获取实例
 // Polls hangs request and then write instances when that has changes, or return NotModified.
 func (d *Discovery) Polls(c context.Context, arg *model.ArgPolls) (ch chan map[string]*model.InstanceInfo, new bool, miss string, err error) {
 	return d.registry.Polls(arg)

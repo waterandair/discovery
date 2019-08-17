@@ -1,3 +1,11 @@
+
+### 推荐阅读
+- https://www.slidestalk.com/u3502/Service_Registration_and_Discovery_in_Station_B
+- https://www.jianshu.com/p/5d9df2fabae1
+- https://blog.csdn.net/u013272009/article/details/91355761
+- https://www.infoq.cn/article/zRuGHM_SsQ0lk7gWyBgG
+
+
 # Discovery 
 [![Build Status](https://travis-ci.org/bilibili/discovery.svg?branch=master)](https://travis-ci.org/bilibili/discovery) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/bilibili/discovery)](https://goreportcard.com/report/github.com/bilibili/discovery)
@@ -48,3 +56,5 @@ You can view the comments in `cmd/discovery/discovery-example.toml` to understan
 ## Feedback
 
 Please report bugs, concerns, suggestions by issues, or join QQ-group 716486124 to discuss problems around source code.
+
+
