@@ -11,7 +11,7 @@ import (
 	"github.com/bilibili/discovery/conf"
 	"github.com/bilibili/discovery/model"
 	"github.com/bilibili/kratos/pkg/ecode"
-	log "github.com/bilibili/kratos/pkg/log"
+	"github.com/bilibili/kratos/pkg/log"
 	http "github.com/bilibili/kratos/pkg/net/http/blademaster"
 	xstr "github.com/bilibili/kratos/pkg/str"
 )
@@ -32,8 +32,8 @@ type Node struct {
 
 	// url
 	client       *http.Client
-	pRegisterURL string
-	registerURL  string
+	pRegisterURL string // 当前节点的注册路径
+	registerURL  string // 用于共享信息的对等节点的注册路径
 	cancelURL    string
 	renewURL     string
 	setURL       string
@@ -95,18 +95,21 @@ func (n *Node) Renew(c context.Context, i *model.Instance) (err error) {
 		err = n.call(c, model.Register, i, n.registerURL, nil)
 		return
 	}
-	// NOTE: register response instance whitch in conflict with peer node
+	// todo(spell)
+	// NOTE: register response instance which in conflict with peer node
 	if err == ecode.Conflict && res != nil {
 		err = n.call(c, model.Register, res, n.pRegisterURL, nil)
 	}
 	return
 }
 
-// Set the infomation of instance by this node to the peer node represented
+// todo(spell)
+// Set the information of instance by this node to the peer node represented
 func (n *Node) Set(c context.Context, arg *model.ArgSet) (err error) {
 	err = n.setCall(c, arg, n.setURL)
 	return
 }
+
 func (n *Node) call(c context.Context, action model.Action, i *model.Instance, uri string, data interface{}) (err error) {
 	params := url.Values{}
 	params.Set("region", i.Region)
@@ -146,6 +149,7 @@ func (n *Node) call(c context.Context, action model.Action, i *model.Instance, u
 	if res.Code != 0 {
 		log.Error("node be called(%s) instance(%v) response code(%v)", uri, i, res.Code)
 		if err = ecode.Int(res.Code); err == ecode.Conflict {
+			// todo (why)
 			_ = json.Unmarshal([]byte(res.Data), data)
 		}
 	}

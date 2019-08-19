@@ -18,6 +18,7 @@ const (
 	_evictCeiling   = int64(3600 * time.Second)
 )
 
+// Registry 处理同步所有操作到对等的节点
 // Registry handles replication of all operations to peer Discovery nodes to keep them all in sync.
 type Registry struct {
 	appm  map[string]*model.Apps // appid-env -> apps
@@ -303,6 +304,7 @@ func (r *Registry) proc() {
 	for {
 		select {
 		case <-tk:
+			// 每分钟更新一次心跳成功的数量
 			r.gd.updateFac()
 			r.evict()
 		case <-tk2:
@@ -311,9 +313,13 @@ func (r *Registry) proc() {
 	}
 }
 
+// 赶出
 func (r *Registry) evict() {
-	protect := r.gd.ok()
-	// We collect first all expired items, to evict them in random order. For large eviction sets,
+	protect := r.gd.ok()  // true: 心跳数小于预期
+	// 先收集所有过期的实例，随机的把他们踢出。如果不这么做，对于较大的过期实例集合，可能会在自我保护开始前踢出所有应用。
+	// 通过随机化，影响应该在所有应用程序中均匀分布
+
+	// We collect first all expired instances, to evict them in random order. For large eviction sets,
 	// if we do not that, we might wipe out whole apps before self preservation kicks in. By randomizing it,
 	// the impact should be evenly distributed across all applications.
 	var eis []*model.Instance

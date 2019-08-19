@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Nodes 用于管理 node 集合的生命周期
 // Nodes is helper to manage lifecycle of a collection of Nodes.
 type Nodes struct {
 	nodes    []*Node
@@ -18,6 +19,7 @@ type Nodes struct {
 	selfAddr string
 }
 
+// 返回 node 集合
 // NewNodes new nodes and return.
 func NewNodes(c *conf.Config) *Nodes {
 	nodes := make([]*Node, 0, len(c.Nodes))
@@ -46,6 +48,7 @@ func NewNodes(c *conf.Config) *Nodes {
 	}
 }
 
+// 将信息复制到其他所有节点
 // Replicate replicate information to all nodes except for this node.
 func (ns *Nodes) Replicate(c context.Context, action model.Action, i *model.Instance, otherZone bool) (err error) {
 	if len(ns.nodes) == 0 {
@@ -57,6 +60,8 @@ func (ns *Nodes) Replicate(c context.Context, action model.Action, i *model.Inst
 			ns.action(c, eg, action, n, i)
 		}
 	}
+
+	// 向其他区中的一个节点发送信息
 	if !otherZone {
 		for _, zns := range ns.zones {
 			if n := len(zns); n > 0 {
@@ -67,6 +72,8 @@ func (ns *Nodes) Replicate(c context.Context, action model.Action, i *model.Inst
 	err = eg.Wait()
 	return
 }
+
+// 向其他节点设置信息
 // ReplicateSet replicate set information to all nodes except for this node.
 func (ns *Nodes) ReplicateSet(c context.Context, arg *model.ArgSet, otherZone bool) (err error) {
 	if len(ns.nodes) == 0 {
