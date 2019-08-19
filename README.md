@@ -1,5 +1,6 @@
 
 ### 推荐阅读
+- https://www.infoq.cn/article/jlDJQ*3wtN2PcqTDyokh
 - https://www.slidestalk.com/u3502/Service_Registration_and_Discovery_in_Station_B
 - https://www.jianshu.com/p/5d9df2fabae1
 - https://blog.csdn.net/u013272009/article/details/91355761

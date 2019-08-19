@@ -324,7 +324,8 @@ func (r *Registry) proc() {
 	}
 }
 
-// 赶出
+// 踢出, https://www.infoq.cn/article/jlDJQ*3wtN2PcqTDyokh
+// 只有大于阈值， 才会进入剔除
 func (r *Registry) evict() {
 	protect := r.gd.ok() // true: 心跳数小于预期
 	// 先收集所有过期的实例，随机的把他们踢出。如果不这么做，对于较大的过期实例集合，可能会在自我保护开始前踢出所有应用。
@@ -344,7 +345,8 @@ func (r *Registry) evict() {
 			is := a.Instances()
 			for _, i := range is {
 				delta := time.Now().UnixNano() - i.RenewTimestamp
-				// 不在保护模式但心跳间隔大于 90 秒  或者 不论任何模式，心跳间隔大于 1 小时，则加入到踢出集合
+				// 1. 实际心跳次数大于期望数（认为是 discovery client 错误）， 心跳间隔大于 90 秒的，进入剔除列表
+				// 2. 实际心跳小于期望数（认为是 discovery server 错误），心跳间隔大于 1 小时，则加入到剔除列表
 				if (!protect && delta > _evictThreshold) || delta > _evictCeiling {
 					eis = append(eis, i)
 				}
