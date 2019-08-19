@@ -10,7 +10,7 @@ import (
 	"github.com/bilibili/discovery/model"
 
 	"github.com/bilibili/kratos/pkg/ecode"
-	log "github.com/bilibili/kratos/pkg/log"
+	"github.com/bilibili/kratos/pkg/log"
 )
 
 const (
@@ -52,11 +52,13 @@ func NewRegistry(conf *conf.Config) (r *Registry) {
 	}
 	r.scheduler = newScheduler(r)
 	r.scheduler.Load(conf.Scheduler)
+
+	// 自我保护
 	go r.proc()
 	return
 }
 
-func (r *Registry) newapps(appid, env string) (a *model.Apps, ok bool) {
+func (r *Registry) newApps(appid, env string) (a *model.Apps, ok bool) {
 	key := appsKey(appid, env)
 	r.aLock.Lock()
 	if a, ok = r.appm[key]; !ok {
@@ -83,18 +85,21 @@ func appsKey(appid, env string) string {
 }
 
 func (r *Registry) newApp(ins *model.Instance) (a *model.App) {
-	as, _ := r.newapps(ins.AppID, ins.Env)
+	as, _ := r.newApps(ins.AppID, ins.Env)
 	a, _ = as.NewApp(ins.Zone, ins.AppID, ins.LatestTimestamp)
 	return
 }
 
+// 注册一个实例
 // Register a new instance.
 func (r *Registry) Register(ins *model.Instance, latestTime int64) (err error) {
 	a := r.newApp(ins)
 	i, ok := a.NewInstance(ins, latestTime)
 	if ok {
+		// 增加心跳期望数
 		r.gd.incrExp()
 	}
+	// 确保在更新 app 的 latest timestamp 前清空 poll 请求
 	// NOTE: make sure free poll before update appid latest timestamp.
 	r.broadcast(i.Env, i.AppID)
 	return
@@ -148,7 +153,7 @@ func (r *Registry) cancel(zone, env, appid, hostname string, latestTime int64) (
 
 // FetchAll fetch all instances of all the families.
 func (r *Registry) FetchAll() (im map[string][]*model.Instance) {
-	ass := r.allapp()
+	ass := r.allApp()
 	im = make(map[string][]*model.Instance)
 	for _, as := range ass {
 		for _, a := range as.App("") {
@@ -231,12 +236,14 @@ func (r *Registry) Polls(arg *model.ArgPolls) (ch chan map[string]*model.Instanc
 	return
 }
 
+// 清空已有的 poll chan， 并对已有的 poll chan 进行广播，将全新的 instanceInfo 加入 chan
 // broadcast on poll by chan.
 // NOTE: make sure free poll before update appid latest timestamp.
 func (r *Registry) broadcast(env, appid string) {
 	key := pollKey(env, appid)
 	r.cLock.Lock()
 	defer r.cLock.Unlock()
+	// 获取当前 DeployEnv 下该 app 的所有 poll 请求的 chan
 	conns, ok := r.conns[key]
 	if !ok {
 		return
@@ -277,7 +284,8 @@ func (r *Registry) Set(arg *model.ArgSet) (ok bool) {
 	return
 }
 
-func (r *Registry) allapp() (ass []*model.Apps) {
+// 获取所有的微服务 app
+func (r *Registry) allApp() (ass []*model.Apps) {
 	r.aLock.RLock()
 	ass = make([]*model.Apps, 0, len(r.appm))
 	for _, as := range r.appm {
@@ -287,10 +295,11 @@ func (r *Registry) allapp() (ass []*model.Apps) {
 	return
 }
 
-// reset expect renews, count the renew of all app, one app has two expect remews in minute.
+// todo (spell)
+// reset expect renews, count the renew of all app, one app has two expect renews in minute.
 func (r *Registry) resetExp() {
 	cnt := int64(0)
-	for _, p := range r.allapp() {
+	for _, p := range r.allApp() {
 		for _, a := range p.App("") {
 			cnt += int64(a.Len())
 		}
@@ -308,6 +317,8 @@ func (r *Registry) proc() {
 			r.gd.updateFac()
 			r.evict()
 		case <-tk2:
+			// todo 为什么不每分钟重置一次
+			// 每隔十五分钟，重新计算期望的心跳数
 			r.resetExp()
 		}
 	}
@@ -315,7 +326,7 @@ func (r *Registry) proc() {
 
 // 赶出
 func (r *Registry) evict() {
-	protect := r.gd.ok()  // true: 心跳数小于预期
+	protect := r.gd.ok() // true: 心跳数小于预期
 	// 先收集所有过期的实例，随机的把他们踢出。如果不这么做，对于较大的过期实例集合，可能会在自我保护开始前踢出所有应用。
 	// 通过随机化，影响应该在所有应用程序中均匀分布
 
@@ -324,22 +335,27 @@ func (r *Registry) evict() {
 	// the impact should be evenly distributed across all applications.
 	var eis []*model.Instance
 	var registrySize int
-	// all projects
-	ass := r.allapp()
+	// todo （change name）
+	// all projects in current DeployEnv
+	ass := r.allApp()
 	for _, as := range ass {
 		for _, a := range as.App("") {
 			registrySize += a.Len()
 			is := a.Instances()
 			for _, i := range is {
 				delta := time.Now().UnixNano() - i.RenewTimestamp
+				// 不在保护模式但心跳间隔大于 90 秒  或者 不论任何模式，心跳间隔大于 1 小时，则加入到踢出集合
 				if (!protect && delta > _evictThreshold) || delta > _evictCeiling {
 					eis = append(eis, i)
 				}
 			}
 		}
 	}
+
+	// 为了补偿GC暂停或者本地时间漂移，需要使用当前注册了的所有的app的数量作为 自我保护机制的出发条件，如果不这样处理，可能会踢出所有 app
 	// To compensate for GC pauses or drifting local time, we need to use current registry size as a base for
 	// triggering self-preservation. Without that we would wipe out full registry.
+	// 这里是期望踢出操作结束后，已注册的app不要小于原有的 85%
 	eCnt := len(eis)
 	registrySizeThreshold := int(float64(registrySize) * _percentThreshold)
 	evictionLimit := registrySize - registrySizeThreshold
@@ -349,6 +365,7 @@ func (r *Registry) evict() {
 	if eCnt == 0 {
 		return
 	}
+
 	for i := 0; i < eCnt; i++ {
 		// Pick a random item (Knuth shuffle algorithm)
 		next := i + rand.Intn(len(eis)-i)
